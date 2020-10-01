@@ -1,0 +1,42 @@
+---
+# Check if directory exists:
+# 1) Export directory on host
+# 2) Mount directory on remote logging server
+
+- name: 'Reister UID for {{ item.user }}'
+  command: id -u "{{ item.user }}"
+  register: user_id
+
+- name: 'Reister GID for {{ item.user }}'
+  command: id -g "{{ item.user }}"
+  register: group_id
+
+- name: 'Set var UID and GID'
+  set_fact:
+    anonuid: "{{ user_id.stdout }}"
+    anongid: "{{ group_id.stdout }}"
+  when:
+    - user_id is defined
+    - group_id is defined
+
+- name: 'Register var if directory exists'
+  stat:
+    path: "{{ item.path }}"
+  register: directory_exists
+
+- name: 'Entry in /etc/exports for item.path directory'
+  lineinfile:
+    path: /etc/exports
+    line: "{{ item.path }}\t\t\t{{ sstone_server }}(ro,sync,all_squash,anonuid={{ anonuid | default('1000') }},anongid={{ anongid | default('1000') }})"
+  when:
+    - directory_exists.stat.exists
+    - user_id is defined
+    - group_id is defined
+
+- name: 'Create entry in remote loggin server for item.path'
+  lineinfile:
+    path: "{{ config_file }}"
+    insertafter: "## {{ env }} ##"
+    line: "{{ inventory_hostname_short }}-{{ item.label }}\t\t{{ '-' }}ro,soft\t{{ inventory_hostname }}:{{ item.path }}"
+  delegate_to: "{{ sstone_server }}"
+  when: directory_exists.stat.exists
