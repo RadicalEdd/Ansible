@@ -1,0 +1,73 @@
+---
+- name: Resource-export 
+  gather_facts: false
+  hosts: all
+          
+  tasks:
+    - name: '*** Executing actions on all host except wlsa01 ***' 
+      block: 
+        - name: '*** Executing actions delegated to wlsa01 node ***'
+          block:
+            - name: 'Register UID for weblogic user'
+              command: id -u weblogic
+              register: user_id 
+       
+            - name: 'Register GID for weblogic'
+              command: id -g weblogic
+              register: group_id
+
+            - name: 'Add entry in /etc/exports'
+              lineinfile:
+                path: /etc/exports
+                line: "/var/fmw/resources                   {{ inventory_hostname }}(rw,sync,all_squash,anonuid={{ user_id.stdout }},anongid={{ group_id.stdout }})"
+            
+            - name: 'Reload NFS'
+              service: 
+                name: nfs       
+                state: reloaded
+          delegate_to:  "{{ groups['mw_os_hosts'] | select('match', '(?=^(wlsa01))') | first }}"
+
+        - name: 'Check if folder hosel_resources exists'
+          stat:
+            path: /mnt/hosel_resources
+          register: hosel_resources_dir
+        
+        - name: 'Create hosel_resources folder'
+          file:
+            path: /mnt/hosel_resources
+            state: directory
+            mode: 0777
+          when: hosel_resources_dir.stat.exists == false
+        
+        - name: 'Mount wlsa01:/var/fmw/resources to /mnt/hosel_resources'
+          mount:
+            path: /mnt/hosel_resources
+            state: mounted
+            src: "{{ item }}:/var/fmw/resources"
+            fstype: nfs
+            opts: "rsize=8192,wsize=8192,timeo=30"
+          with_items:  "{{ groups['mw_os_hosts'] | select('match', '(?=^(wlsa01))') | list }}"
+
+        - name: 'Check if folder resources is directory'
+          stat:
+            path: /var/fmw/resources
+            follow: no
+          register: resources_dir
+        
+        - name: 'Remove resources if its directory'
+          file:
+            path: /var/fmw/resources/
+            state: absent
+          when: 
+            - resources_dir.stat.isdir is defined
+            - resources_dir.stat.isdir
+            - resources_dir.stat.exists
+            - resources_dir.stat.islnk == False
+            
+        - name: 'Create symlink from hosel-resources to /var/fmw/resources'
+          file:
+            src: /mnt/hosel_resources
+            dest: /var/fmw/resources
+            state: link
+
+      when: "('wlsa01' not in inventory_hostname) and (('wlsa' in inventory_hostname) or ('wlsb' in inventory_hostname) or ('lx' in inventory_hostname))"
