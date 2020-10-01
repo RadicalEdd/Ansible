@@ -1,0 +1,4 @@
+---
+- name: 'Include upload config files tasks'
+  include_tasks: upload_files.yml
+

@@ -1,0 +1,129 @@
+<VirtualHost *:80>
+	ServerName {{ item.server }}.{{ env }}.{{ domain_name }}
+        ServerAlias {{ item.server }}.{{ env }}.{{ domain_name }}
+
+        ErrorLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.server }}.{{ env }}.{{ domain_name }}_error.log-%Y%m%d 86400"
+	{% raw %}
+        LogFormat "%{Host}i %h %l %u %t \"%r\" %s %>s %b  [duration: %D us (%T s)] (redir=%{redir}C, SID=%{JSESSIONID}C)"
+	{% endraw %}
+        TransferLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.server }}.{{ env }}.{{ domain_name }}_access.log-%Y%m%d 86400"
+
+        SetOutputFilter DEFLATE
+        SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:zip|t?gz|bz2)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:pdf)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \/servlet\/ no-gzip dont-vary
+
+        <IfModule mod_cache.c>
+                CacheDisable /
+        </IfModule>
+
+        ProxyRequests Off
+        <Proxy \*>
+                Order deny,allow
+                Deny from all
+        </Proxy>
+        ProxyPass /balancer-manager !
+
+        <Proxy balancer://{{ item.server }}_cluster>
+                BalancerMember http://{{ item.host }}01-{{ env }}.{{ domain_name }}:{{ item.port }}
+                BalancerMember http://{{ item.host }}02-{{ env }}.{{ domain_name }}:{{ item.port }}
+                BalancerMember http://{{ item.host }}03-{{ env }}.{{ domain_name }}:{{ item.port }}
+                Order deny,allow
+                Allow from all
+        </Proxy>
+
+	##  LogLevel debug
+
+        <Location />
+            ProxyPass "balancer://{{ item.server }}_cluster/" timeout=600
+            ProxyPassReverse "balancer://{{ item.server }}_cluster/"
+        </Location>
+
+        <Location /balancer-manager>
+                SetHandler balancer-manager
+                Order deny,allow
+                Allow from all
+        </Location>
+
+        <Location /server-status>
+                SetHandler server-status
+                Order deny,allow
+                Deny from all
+                Allow from 192.168.35.22
+        </Location>
+        <Location /test_sha1sum.txt>
+                SetHandler default-handler
+        </Location>
+</VirtualHost>
+
+
+<VirtualHost *:443>
+	ServerName {{ item.server }}.{{ env }}.{{ domain_name }}
+        ServerAlias {{ item.server }}.{{ env }}.{{ domain_name }}
+
+        ErrorLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.server }}.{{ env }}.{{ domain_name }}_ssl_error.log-%Y%m%d 86400"
+	{% raw %}
+        LogFormat "%{Host}i %h %l %u %t \"%r\" %s %>s %b  [duration: %D us (%T s)] (redir=%{redir}C, SID=%{JSESSIONID}C)"
+	{% endraw %}
+        TransferLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.server }}.{{ env }}.{{ domain_name }}_ssl_access.log-%Y%m%d 86400"
+        SSLEngine on
+
+        SSLProxyEngine on
+        {% if domain_name  == 'cn.infra' %}
+        SSLCertificateChainFile conf/certs/SSLCertificateChainFile-HCCNWebCA.pem
+        {% else %}
+        SSLCertificateChainFile conf/certs/SSLCertificateChainFile-HCCZWebCA.pem
+        {% endif %}
+        SSLCertificateFile conf/certs/wild-administ-homecredit-nonprod-infra.pem
+        SSLCertificateKeyFile conf/certs/wild-administ-homecredit-nonprod-infra.key
+
+        SetOutputFilter DEFLATE
+        SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:zip|t?gz|bz2)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:pdf)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \/servlet\/ no-gzip dont-vary
+
+        <IfModule mod_cache.c>
+                CacheDisable /
+        </IfModule>
+
+        ProxyRequests Off
+
+        <Proxy \*>
+                Order deny,allow
+                Deny from all
+        </Proxy>
+        ProxyPass /balancer-manager !
+
+        <Proxy balancer://{{ item.server }}_cluster>
+                BalancerMember http://{{ item.host }}01-{{ env }}.{{ domain_name }}:{{ item.port }}
+                BalancerMember http://{{ item.host }}02-{{ env }}.{{ domain_name }}:{{ item.port }}
+                BalancerMember http://{{ item.host }}03-{{ env }}.{{ domain_name }}:{{ item.port }}
+                Order deny,allow
+                Allow from all
+        </Proxy>
+
+	##  LogLevel debug
+
+        <Location />
+            ProxyPass "balancer://{{ item.server }}_cluster/" timeout=600
+            ProxyPassReverse "balancer://{{ item.server }}_cluster/"
+        </Location>
+
+        <Location /balancer-manager>
+                SetHandler balancer-manager
+                Order deny,allow
+                Allow from all
+        </Location>
+
+        <Location /server-status>
+                SetHandler server-status
+                Order deny,allow
+                Deny from all
+                Allow from 192.168.35.22
+        </Location>
+        <Location /test_sha1sum.txt>
+                SetHandler default-handler
+        </Location>
+</VirtualHost>

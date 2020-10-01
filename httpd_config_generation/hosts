@@ -1,0 +1,25 @@
+[web]
+pxy01-cn03d0.cz.infra
+pxy01-cn03d3.cz.infra
+pxy01-cn03d4.cz.infra
+pxy01-cn06d1.cz.infra
+pxy01-cn06d2.cz.infra
+pxy01-cn06d6.cz.infra
+pxy01-cn00d0.cz.infra
+pxy01-cn00d7.cz.infra
+pxy01-cn00d9.cz.infra
+pxy01-cn00a1.cz.infra
+pxy01-cn00a2.cz.infra
+pxy01-cn00c1.cn.infra
+pxy01-cn00c2.cn.infra
+pxy01-cn00c3.cn.infra
+pxy01-cn00c4.cn.infra
+pxy01-cn00c8.cn.infra
+pxy01-cn00c9.cn.infra
+pxy01-cn01r1.cn.infra
+pxy02-cn01r1.cn.infra
+pxy03-cn01r1.cn.infra
+pxy04-cn01r1.cn.infra
+
+[mylocalhost]
+localhost ansible_connection=local

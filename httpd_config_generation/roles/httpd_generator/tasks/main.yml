@@ -1,0 +1,3 @@
+---
+- name: 'Include http generator tasks'
+  include_tasks: httpd-generator.yml

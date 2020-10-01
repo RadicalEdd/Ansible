@@ -1,0 +1,14 @@
+---
+- name: 'Archive host.d configurations'
+  archive:
+    path: /etc/httpd/host.d
+    dest: "/etc/httpd/host.d.{{ lookup('pipe', 'date +%Y%m%d-%H%M') }}.tgz"
+
+- name: "Copy files" 
+  copy:
+    src: "{{ item }}"
+    remote_src: no
+    dest: /etc/httpd/host.d/
+  with_fileglob:
+    - "{{ gen_config_dir }}/{{ env }}/*.conf"
+  notify: 'Reload Apache servers'

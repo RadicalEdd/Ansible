@@ -1,0 +1,9 @@
+---
+# Administ url
+# ------------
+administ_url: "https://administ2.cz.prod"
+
+# Administ api key certificate path
+# ---------------------------------
+api_key_path: "/etc/ansible/administ-api/certs/administ_martin_pazourek.key"
+api_crt_path: "/etc/ansible/administ-api/certs/administ_martin_pazourek_public.crt"

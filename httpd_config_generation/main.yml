@@ -1,0 +1,35 @@
+---
+- name: 'Generate httpd conf'
+  gather_facts: False
+  hosts: all
+  vars:
+    env: "{{ env }}"
+
+  pre_tasks:
+  - name: 'Verify Ansible version.'
+    assert:
+      that: "ansible_version.full is version_compare('2.7', '>=')"
+      msg: >
+        "You must use only Ansible version 2.7 with Python 2.7 to use this playbook."
+    delegate_to: localhost
+    run_once: True
+
+  tasks:
+  - name: 'Include generator role'
+    include_role:
+      name: httpd_generator
+    when: "'localhost' in inventory_hostname"
+  tags: generate_http_conf
+
+- name: 'Upload httpd conf'
+  gather_facts: False
+  hosts: all
+  vars:
+    env: "{{ env }}"
+
+  tasks:
+  - name: 'Include upload role'
+    include_role:
+      name: upload_files
+    when: "'{{ env }}' in inventory_hostname"
+  tags: upload_http_conf

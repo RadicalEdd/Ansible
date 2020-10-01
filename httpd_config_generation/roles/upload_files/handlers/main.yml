@@ -1,0 +1,6 @@
+---
+# handlers file for upload_files
+- name: 'Reload Apache servers'
+  service:
+    name: httpd
+    state: reloaded

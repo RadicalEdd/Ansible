@@ -1,0 +1,138 @@
+<VirtualHost *:443>
+        ServerName {{ item.key }}.{{ env }}.{{ domain_name }}
+
+        ErrorLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.key }}.{{ env }}.{{ domain_name }}_ssl_error.log-%Y%m%d 86400"
+        
+	{% raw %}
+	LogFormat "%{Host}i [remote: %h (%a)] [user: %u (%{login}C)] %t \"%r\" %>s [size: %I, %O, %b] [dur: %D us (%T s)] [SID=%{JSESSIONID}C] [conn: %P, %X] \"%!200,302,304,401{Content-Type}o\" \"%{User-agent}i\" \"CALLID=%{CALLID}i\" \"SOAPAction=%{SOAPAction}i\" \"%!200,302,304{X-Requested-With}o\""
+        {% endraw %}
+	
+	TransferLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.key }}.{{ env }}.{{ domain_name }}_ssl_access.log-%Y%m%d 86400"
+
+        <IfModule mod_ssl.c>
+                SSLEngine on
+                SSLCertificateChainFile conf/certs/SSLCertificateChainFile-HC{{ country_name }}WebCA.pem
+                SSLCertificateFile    conf/certs/wild-administ-homecredit-nonprod-infra.pem
+                SSLCertificateKeyFile conf/certs/wild-administ-homecredit-nonprod-infra.key
+        </IfModule>
+
+	DocumentRoot "/var/www/loxon-static"
+
+        FilterDeclare gzip CONTENT_SET
+#        FilterProvider gzip deflate Content-Type $text/
+        FilterDeclare gunzip
+#        FilterProvider gunzip inflate req=Accept-Encoding !$gzip
+        FilterChain +gzip +gunzip
+        SetOutputFilter DEFLATE
+        SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:zip|t?gz|bz2)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:pdf)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \/servlet\/ no-gzip dont-vary
+        SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-unclean-shutdown downgrade-1.0 force-response-1.0
+
+        BrowserMatch MSIE ie
+        BrowserMatch Trident ie
+        RequestHeader set User-Agent "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0)" env=ie
+        Header set X-UA-Compatible "IE=EmulateIE8,chrome=1" env=ie
+        # Header set X-UA-Compatible "IE=8,chrome=1" env=ie
+
+        #Header set X-UA-Compatible "IE=edge,chrome=1" env=ie
+        #SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-unclean-shutdown downgrade-1.0 force-response-1.0
+
+        <IfModule mod_deflate.c>
+                AddOutputFilterByType DEFLATE text/plain
+                AddOutputFilterByType DEFLATE text/html
+                AddOutputFilterByType DEFLATE text/xml
+                AddOutputFilterByType DEFLATE text/css
+                AddOutputFilterByType DEFLATE text/javascript
+                AddOutputFilterByType DEFLATE image/svg+xml
+                AddOutputFilterByType DEFLATE image/x-icon
+                AddOutputFilterByType DEFLATE application/xml
+                AddOutputFilterByType DEFLATE application/xhtml+xml
+                AddOutputFilterByType DEFLATE application/rss+xml
+                AddOutputFilterByType DEFLATE application/javascript
+                AddOutputFilterByType DEFLATE application/x-javascript
+        </IfModule>
+        
+	<IfModule mod_cache.c>
+                CacheDisable /
+        </IfModule>
+
+	<Location /Collection/ng>
+	    <IfModule mod_weblogic.c>
+	            SetHandler weblogic-handler
+	            WebLogicCluster {% for item in item.value %}{{ item }}{% if not loop.last %}{{','}}{% endif %}{% endfor %}
+	            
+		    WLLogFile /tmp/wl_loxon_lcs_collection_ng.log
+	            WLTempDir /tmp
+	            #Debug on
+	            #DebugConfigInfo on
+	            KeepAliveEnabled on
+	            WLIOTimeoutSecs 720
+	            KeepAliveSecs 15
+	            Idempotent off
+
+#        	    WLExcludePathOrMimeType *.htm,*.jpg,*.gif,*.png,*.ico,*.css,*.js,*.woff,*.woff2
+		    WLExcludePathOrMimeType **/resources/**/*.htm,**/resources/**/*.jpg,**/resources/**/*.gif,**/resources/**/*.png,**/resources/**/*.ico,**/resources/**/*.css,**/resources/**/*.js,**/resources/**/*.woff,**/resources/**/*.woff2
+	    </IfModule>
+	</Location>
+
+	<Location />
+		<IfModule mod_weblogic.c>
+			SetHandler weblogic-handler
+			WebLogicCluster {% for item in item.value %}{{ item }}{% if not loop.last %}{{','}}{% endif %}{% endfor %}
+			
+			WLLogFile /tmp/wl_loxon_lcs.log
+			WLTempDir /tmp
+			#Debug on
+			#DebugConfigInfo on
+			KeepAliveEnabled on
+			WLIOTimeoutSecs 720
+			KeepAliveSecs 15
+			Idempotent off
+		</IfModule>
+	</Location>
+
+	AddType application/x-font-woff .woff
+
+	<ifModule mod_expires.c>
+	        ExpiresActive On
+	        ExpiresDefault "access plus 1 seconds"
+	        ExpiresByType text/htm "access plus 60 seconds"
+	        ExpiresByType image/jpeg "access plus 60 seconds"
+	        ExpiresByType image/gif "access plus 60 seconds"
+	        ExpiresByType image/png "access plus 60 seconds"
+	        ExpiresByType image/ico "access plus 60 seconds"
+	        ExpiresByType text/css "access plus 60 seconds"
+	        ExpiresByType text/javascript "access plus 60 seconds"
+	        ExpiresByType application/x-font-woff "access plus 60 seconds"
+        	ExpiresByType application/x-javascript "access plus 60 seconds"
+	</ifModule>
+
+	<ifModule mod_headers.c>
+# it's causing TLO-5097 !	 Header edit Set-Cookie ^(.*)$ $1;HttpOnly;Secure
+	        <filesMatch "\\.(htm|jpg||gif|png|ico|css|woff|woff2)$">
+	              Header set Cache-Control "max-age=60, public"
+	        </filesMatch>
+	        <filesMatch "\\.(js)$">
+	              Header set Cache-Control "max-age=60, private"
+	        </filesMatch>
+		<filesMatch "\\.(xhtml|html)$">
+	              Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+		      Header set Pragma "no-cache"
+              	      Header set Expires "Wed, 11 Jan 1984 05:00:00 GMT"
+	        </filesMatch>
+	</ifModule>
+
+        <Location /server-status>
+                SetHandler server-status
+                Order deny,allow
+                Deny from all
+                Allow from 10.27.12.6 127.0.0.1 
+        </Location>
+        
+	<Location /test_sha1sum.txt>
+                SetHandler default-handler
+        </Location>
+</VirtualHost>
+

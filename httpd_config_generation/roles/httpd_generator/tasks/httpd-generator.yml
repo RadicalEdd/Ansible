@@ -1,0 +1,61 @@
+- name: 'Collecting information about domains' 
+  uri:
+    url: "{{ administ_url }}/api/v1/environment/{{ env }}/wlsdomains/servers"
+    return_content: False
+    validate_certs: False
+    client_key: "{{ api_key_path }}"
+    client_cert: "{{ api_crt_path }}"        
+  register: api_wlsdomain
+
+
+
+- name: 'Collecting domain name + env code'
+  uri:
+    url: "{{ administ_url }}/api/v1/environment-by-code/{{ env }}" 
+    return_content: False
+    validate_certs: False
+    client_key: "{{ api_key_path }}"
+    client_cert: "{{ api_crt_path }}"        
+  register: api_environment
+
+# Because of variable numbers of hcp nodes we are collecting amount of servers
+- name: 'Collecting number of hcp nodes'
+  uri:
+    url: "{{ administ_url }}/api/v1/serverlist/json/{{ env }}"
+    return_content: False
+    validate_certs: False
+    client_key: "{{ api_key_path }}"
+    client_cert: "{{ api_crt_path }}"
+  register: api_serverlist
+
+- name: 'Set variable domain name'
+  set_fact:
+    domain_name: "{{ api_environment | filter_domain_name }}"
+
+- name: 'Set variable country name'
+  set_fact:
+    country_name: "{{ api_environment | filter_country_name }}"
+
+- name: 'Filter hcp servers'
+  set_fact:
+    hcp_list: "{{ api_serverlist | filter_hcp }}"
+
+- name: 'Call dictionary filter'
+  set_fact:
+    application_dictionary: "{{ api_wlsdomain | filter_variables }}" 
+
+- name: 'Creates directory {{ env }}'
+  file:
+    path: generated_configs/{{ env }} 
+    state: directory
+
+- name: 'Generate config file from template'
+  template:
+    src: "{{ lookup('first_found', findme)}}"
+    dest: "generated_configs/{{ env }}/{{ item.key }}.conf"
+  vars:
+    findme:
+      - "./templates/{{ item.key }}.j2"
+      - "./templates/standard-template.j2"
+  with_dict:
+      - "{{ application_dictionary }}"

@@ -1,0 +1,70 @@
+<VirtualHost *:443>
+        ServerName {{ item.key }}.{{ env }}.{{ domain_name }}
+        ServerAlias {{ item.key }}.{{ env }}.{{ domain_name }}
+
+        ErrorLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.key }}.{{ env }}.{{ domain_name }}_ssl_error.log-%Y%m%d 86400"
+	{% raw %}
+	LogFormat "%{Host}i [remote: %h (%a)] [user: %u (%{login}C)] %t \"%r\" %>s [size: %I, %O, %b] [dur: %D us (%T s)] [SID=%{JSESSIONID}C] [conn: %P, %X] \"%!200,302,304,401{Content-Type}o\" \"%{User-agent}i\" \"CALLID=%{CALLID}i\" \"SOAPAction=%{SOAPAction}i\" \"%!200,302,304{X-Requested-With}o\""
+        {% endraw %}
+
+	TransferLog "|/usr/sbin/rotatelogs -l -f -c logs/{{ item.key }}.{{ env }}.{{ domain_name }}_ssl_access.log-%Y%m%d 86400"
+
+        <IfModule mod_ssl.c>
+                SSLEngine on
+                SSLCertificateChainFile conf/certs/SSLCertificateChainFile-HC{{ country_name }}WebCA.pem
+                SSLCertificateFile    conf/certs/wild-administ-homecredit-nonprod-infra.pem
+                SSLCertificateKeyFile conf/certs/wild-administ-homecredit-nonprod-infra.key
+        </IfModule>
+
+        SetOutputFilter DEFLATE
+        SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:zip|t?gz|bz2)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \.(?:pdf)$ no-gzip dont-vary
+        SetEnvIfNoCase Request_URI \/servlet\/ no-gzip dont-vary
+
+        <IfModule mod_cache.c>
+                CacheDisable /
+        </IfModule>
+
+        RequestHeader set X-Forwarded-Proto "https"
+        RequestHeader set X-Forwarded-Port "443"
+        UseCanonicalName on
+        ProxyPreserveHost on
+        ProxyRequests off
+        
+	<Proxy *>
+            Order deny,allow
+            Allow from all
+        </Proxy>
+        
+	ProxyPass /balancer-manager !
+
+        <Proxy balancer://docker>
+                BalancerMember http://swarm01-{{ env }}.{{ domain_name }}:8080
+                BalancerMember http://swarm02-{{ env }}.{{ domain_name }}:8080
+                BalancerMember http://swarm03-{{ env }}.{{ domain_name }}:8080
+                BalancerMember http://swarm04-{{ env }}.{{ domain_name }}:8080
+                BalancerMember http://swarm05-{{ env }}.{{ domain_name }}:8080
+                Require all granted
+        </Proxy>
+        
+	ProxyPass / balancer://docker/
+
+        <Location /balancer-manager>
+                SetHandler balancer-manager
+                Require all granted
+        </Location>
+        
+	<Location /server-status>
+                SetHandler server-status
+                Order deny,allow
+                Deny from all
+                Allow from 10.27.12.6 127.0.0.1 
+        </Location>
+        
+	<Location /test_sha1sum.txt>
+                SetHandler default-handler
+	</Location>
+
+</VirtualHost>
+
