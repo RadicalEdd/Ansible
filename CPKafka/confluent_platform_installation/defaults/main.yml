@@ -1,0 +1,119 @@
+---
+# defaults for role
+fmw_eit_user: root
+fmw_eit_group: root
+
+confluent_lvm_setup:
+  - def: confluent_common_fss
+
+os_common_packages:
+  - nmap
+  - wireshark
+  - psmisc
+  - wget
+  - unzip
+  - screen
+  - middleware-hci-ca-certificates
+
+confluent_platform_packages:
+  - avro-c
+  - confluent-libserdes
+  - librdkafka1
+  - kafkacat
+  - middleware-certnanny-0.1-15.x86_64
+  - confluent-kafka-2.12-5.3.0-1.noarch
+  - confluent-schema-registry.noarch
+  - confluent-common.noarch
+  - iptables-services
+
+docker_packages:
+  - docker
+  - docker-engine.x86_64
+
+# mw_os_dirstruct_setup:
+#   - def: mw_opt_infra
+
+# commented for time being & tested purposes
+# confluent_usersgroups_setup:
+#   broker:
+#     - def: kafka
+#   zookeeper:
+#     - def: kafka
+#   schema_registry:
+#     - def: schema_registry
+#   ksql:
+#     - def: ksql
+#   kafka_rest:
+#     - def: kafka_rest
+
+mw_os_usersgroups_setup:
+  - def: mw
+  - def: ucmdbusr
+
+mw_os_predefined_usersgroups:
+  ksql:
+    - group: confluent
+    - user: cp-ksql
+      group: confluent
+      password: $PASS
+
+  kafka_rest:
+    - group: confluent
+    - user: cp-kafka-rest
+      group: confluent
+      password: $PASS
+
+  schema_registry:
+    - group: confluent
+    - user: cp-schema-registry
+      group: confluent
+      password: $PASS
+
+  kafka:
+    - group: confluent
+    - user: cp-kafka
+      group: confluent
+      password: $PASS
+
+  appsupp:
+    - group: appsupp
+    - user: appsupp
+      group: appsupp
+      password: $PASS
+
+  mw:
+    - group: mw
+    - user: mw
+      group: mw
+      password: $PASS
+
+  infra:
+    - group: infra
+    - user: infra
+      group: infra
+
+  developer:
+    - group: developer
+    - user: developer
+      group: developer
+      groups: bea
+      password: $PASS
+      create_home: False
+
+  ucmdbusr:
+    - group: ucmdb
+    - user: ucmdbusr
+      group: ucmdb
+
+
+mw_mvn_repo_host: 'nexus-deploy.homecredit.net'
+
+broker_predefined_dir:
+  - "/var/log/kafka"
+  - "/var/lib/kafka"
+
+zookeeper_predefined_dir:
+  - "/var/log/kafka"
+
+
+

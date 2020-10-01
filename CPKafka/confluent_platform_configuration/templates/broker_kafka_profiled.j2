@@ -1,0 +1,5 @@
+# This file is ansible managed
+
+export ZOO={% for host in groups['zookeeper'] %}{{ host }}:2181{% if not loop.last %}{{','}}{% endif %}{% endfor %}
+
+export KAFKA={% for host in groups['broker'] %}{{ host }}:9092{% if not loop.last %}{{','}}{% endif %}{% endfor %}

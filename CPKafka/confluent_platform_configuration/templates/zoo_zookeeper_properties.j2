@@ -1,0 +1,13 @@
+# This file is managed by Ansible
+
+tickTime=2000
+dataDir=/var/lib/zookeeper
+clientPort=2181
+maxClientCnxns=0
+initLimit=5
+syncLimit=2
+{% for host in groups['zookeeper'] %}
+server.{{ host | regex_search('([0-9]+)') }}={{ host }}:2888:3888
+{% endfor %}
+autopurge.snapRetainCount=3
+autopurge.purgeInterval=24

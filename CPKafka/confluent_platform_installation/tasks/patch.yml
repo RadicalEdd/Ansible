@@ -1,0 +1,12 @@
+---
+- name: "[ patch ] Patching of Binaries - Administ2 UPDATE MODE"
+  debug:
+    msg: "Start Patching of Binaries - Administ2 UPDATE MODE"
+
+# java
+- name: "[ patch ] Patch Java - Load role [java]"
+  include_role:
+    name: java
+  vars:
+    mw_java_nexus_server: "{{ mw_mvn_repo_host }}"
+  when: mw_java_patch

@@ -1,0 +1,173 @@
+---
+- name: "[ install ] Installation of Binaries - Administ2 CREATE MODE"
+  debug:
+    msg: "Start Installation of Binaries - Administ2 CREATE MODE"
+
+- name: "[ install ] Configure OS repos - Load role [os_repositories]"
+  include_role:
+    name: os_repositories
+
+- name: "[ install ] Configure PS1 shell prompt"
+  copy:
+    dest: "/etc/profile.d/prod_prompt.sh"
+    # export PS1='NONPROD [\u@\h \W]# '
+    content: |
+        export PS1='{{ ansible_domain.split('.')[-1].upper() }} [\u@\h \W]# '
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: "[ install ] Setup Motd"
+  block:
+  - name: "[ install ] Setup Motd - Get Team Type NONPROD"
+    set_fact:
+      embedit_team_type: 'Middleware Infra / Unix Infra'
+    when: >
+      ansible_domain.split('.')[-1] != 'prod' and
+      embedit_team_type is not defined
+
+  - name: "[ install ] Setup Motd - Get Team Type PROD"
+    set_fact:
+      embedit_team_type: 'Middleware Run / Unix Run'
+    when: >
+      ansible_domain.split('.')[-1] == 'prod' and
+      embedit_team_type is not defined
+
+  - name: "[ install ] Setup Motd - /etc/motd"
+    copy:
+      dest: "/etc/motd"
+      content: |
+          #############################################
+          ##                                         ##
+          ##   {{ (ansible_fqdn + 100*' ') | truncate(38,True,'') }}##
+          ##   {{ (ansible_domain.split('.')[-1].upper() + 100*' ') | truncate(38,True,'') }}##
+          ##   {{ (embedit_team_type + 100*' ') | truncate(38,True,'') }}##
+          ##                                         ##
+          #############################################
+      owner: root
+      group: root
+      mode: '0644'
+
+- name: "[ install ] install os_common_packages"
+  package:
+    name: "{{ os_common_packages }}"
+    state: present
+
+- name: "[ install ] Configure OS Users and Groups - Load role [usersgroups]"
+  include_role:
+    name: usersgroups
+
+# commented for time being & tested purposes
+#- name: "[ install ] Configure Confluent Users and Groups - Load role [usersgroups]"
+#  include_role:
+#    name: usersgroups
+#  vars:
+#    mw_os_usersgroups_setup: "{{ confluent_usersgroups_setup[confluent_product] }}"
+
+#- name: "[ install ] Setup Logical Volumes - Load role [lvm]"
+#  include_role:
+#    name: lvm
+#  vars:
+#    mw_lvm_setup: "{{ confluent_lvm_setup }}"
+
+# mountpoints and ownership
+# commented for time being & tested purposes
+#- name: "[ install ] filesystem ownerships"
+#  include_role:
+#    name: dirstructure
+#  vars:
+#    mw_os_dirstruct_setup: "{{ mw_os_dirstruct_setup_lvms[confluent_product] }}"
+
+#- name: "[ install ] dirstruct /opt/infra"
+#  include_role:
+#    name: dirstructure
+#  vars:
+#    mw_os_dirstruct_setup: "{{ mw_os_dirstruct_setup_optinfra }}"
+
+
+# - name: "[ install ] Create directory structure - /opt/infra"
+#   include_role:
+#     name: dirstructure
+
+
+# NOT using java role, using os role
+## java
+#- name: "[ install ] Install Java - Load role [java]"
+#  include_role:
+#    name: java
+#  vars:
+#    mw_java_nexus_server: "{{ mw_mvn_repo_host }}"
+
+
+# Testing new LVM in templates
+#- name: "[install] Tasks specific for brokers"
+#  block:
+#    # Create DATA VG
+#    - name: "[ install ] Create a volume group on top of /dev/sdd with physical extent size = 34MB"
+#      lvg:
+#        vg: vgDATA
+#        pvs: /dev/sdd
+#        pesize: 34
+#
+#    # Kafka specific LVM
+#    - name: "[ install ] logical volumes specific to Kafka"
+#      include_role:
+#        name: lvm
+#      vars:
+#        mw_lvm_setup: "{{ kafka_lvm_setup }}"
+#  when: inventory_hostname in groups['broker']
+#- name: "[install] Tasks specific for Zookeepers"
+#  block:
+#    # Zookeeper specific LVM
+#    - name: "[ install ] logical volumes specific to Zookeeper"
+#      include_role:
+#        name: lvm
+#      vars:
+#        mw_lvm_setup: "{{ zoo_lvm_setup }}"
+#  when: inventory_hostname in groups['zookeeper']
+
+# Confluent kafka packages and others
+- name: "[ install ] install confluent packages"
+  package:
+    name: "{{ confluent_platform_packages }}"
+    state: present
+
+# ZOOKEEPER BLOCK
+- name: "[install] Tasks specific for Zookeepers"
+  block:
+    - name: "Set up ownership of specific folders of zookeeper"
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "cp-kafka"
+        group: "confluent"
+        mode: '0755'
+        recurse: yes
+      with_items: "{{ zookeeper_predefined_dir }}"
+
+  when: "'zookeeper' in group_names"
+
+# BROKER BLOCK
+- name: "[install] Tasks specific for brokers"
+  block:
+    - name: "Set up ownership of specific folders of brokers"
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "cp-kafka"
+        group: "confluent"
+        mode: '0755'
+        recurse: yes
+      with_items: "{{ broker_predefined_dir }}"
+
+  when: "'broker' in group_names"
+
+# KAFKATOOLS BLOCK
+- name: "[install] Tasks specific for kafka tools"
+  block:
+    - name: "[ install ] install docker packages"
+      package:
+        name: "{{ docker_packages }}"
+        state: present
+
+  when: "'schema-registry' in group_names"

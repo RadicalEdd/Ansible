@@ -1,0 +1,5 @@
+# installing and patching binaries
+- name: "[ main ] configuration of CP Kafka"
+  include_tasks: configure.yml
+
+

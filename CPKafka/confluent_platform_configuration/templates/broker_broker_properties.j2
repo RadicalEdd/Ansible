@@ -1,0 +1,53 @@
+# This file is managed by Ansible
+
+
+broker.id={{ brokerid }}
+listeners=SASL_SSL://:9092,SASL_PLAINTEXT://:9093
+advertised.listeners=SASL_SSL://{{ ansible_hostname }}:9092,SASL_PLAINTEXT://{{ ansible_hostname }}:9093
+listener.security.protocol.map=PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+ 
+num.network.threads=3
+num.io.threads=8
+socket.send.buffer.bytes=102400
+socket.receive.buffer.bytes=102400
+socket.request.max.bytes=104857600
+ 
+log.dirs=/var/lib/kafka/data
+ 
+num.partitions=3
+default.replication.factor=3
+ 
+num.recovery.threads.per.data.dir=2
+ 
+offsets.topic.replication.factor=3
+transaction.state.log.replication.factor=3
+transaction.state.log.min.isr=3
+ 
+log.retention.hours=168
+log.segment.bytes=1073741824
+log.retention.check.interval.ms=300000
+
+zookeeper.connect={% for host in groups['zookeeper'] %}{{ host }}:2181{% if not loop.last %}{{','}}{% endif %}{% endfor %}
+
+zookeeper.connection.timeout.ms=6000
+ 
+confluent.support.metrics.enable=false
+confluent.support.customer.id=anonymous
+ 
+group.initial.rebalance.delay.ms=0
+ 
+sasl.enabled.mechanisms=SCRAM-SHA-256
+sasl.mechanism.inter.broker.protocol=SCRAM-SHA-256
+security.inter.broker.protocol=SASL_PLAINTEXT
+ 
+ssl.truststore.location=/etc/ssl/certs/kafka.jks
+ssl.truststore.password=$PASS
+ssl.keystore.location=/etc/ssl/certs/kafka.jks
+ssl.keystore.password=$PASS
+ssl.key.password=$PASS
+ 
+authorizer.class.name=kafka.security.auth.SimpleAclAuthorizer
+allow.everyone.if.no.acl.found=false
+super.users=User:admin
+auto.create.topics.enable=false
+ 

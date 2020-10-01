@@ -1,0 +1,25 @@
+---
+- name: "[ main ] part1 - export vars from defaults of this role - variables that need to be propagated to other roles"
+  set_fact:
+    mw_java_user: "{{ fmw_eit_user }}"
+    mw_java_group: "{{ fmw_eit_group }}"
+    mode_update: "{{ ADMINIST_MODE_UPDATE|bool }}"
+
+- name: "[ main ] part2 - export vars from defaults of this role - variables that need to be propagated to other roles"
+  set_fact:
+    mw_os_usersgroups_setup: "{{ mw_os_usersgroups_setup }}"
+    mw_os_predefined_usersgroups: "{{ mw_os_predefined_usersgroups }}"
+
+- name: "[ main ] find Administ2 mode"
+  debug:
+    msg: "{% if mode_update %} Administ2 is in UPDATE MODE!{% else %} Administ2 is in CREATE MODE!{% endif %}"
+
+# installing and patching binaries
+- name: "[ main ] installation and patching of binaries - Administ2 CREATE MODE"
+  include_tasks: install.yml
+  when: not mode_update
+
+## patching binaries
+#- name: "[ main ] patching of binaries - Administ2 UPDATE MODE"
+#  include_tasks: patch.yml
+#  when: mode_update

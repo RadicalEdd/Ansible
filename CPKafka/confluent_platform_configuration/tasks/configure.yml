@@ -1,0 +1,293 @@
+---
+
+# TASKS COMMON FOR ALL HOSTS
+- debug:
+    msg: System {{ inventory_hostname }}
+
+- name: "[configure] Create /etc/kafka directory if it does not exist"
+  file:
+    path: /etc/kafka
+    state: directory
+    mode: '0755'
+
+- name: "[configure] Copy jmx prometheus java agent on server"
+  copy:
+    src: Files/jmx_prometheus_javaagent-0.12.0.jar
+    dest: /etc/kafka/jmx_prometheus_javaagent-0.12.0.jar
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: "[configure] Copy kafka-2_0_0.yml"
+  copy:
+    src: Files/kafka-2_0_0.yml
+    dest: /etc/kafka/kafka-2_0_0.yml
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: "[configure] Prepare kafka.sh in profile"
+  template:
+    src: ../templates/broker_kafka_profiled.j2
+    dest: /etc/profile.d/kafka.sh
+    owner: root
+    group: root
+    mode: '0644'
+
+
+
+# ZOOKEEPER BLOCK
+- name: "[configure] Tasks specific for Zookeepers"
+  block:
+    - name: "[configure] Enable zookeeper service"
+      systemd:
+        name: confluent-zookeeper
+        enabled: yes
+
+    - name: "[configure] Fix zookeeper rights"
+      file:
+        path: /var/lib/zookeeper/
+        owner: cp-kafka
+        group: confluent
+        mode: '0750'
+
+    - name: "[configure] Create myid file"
+      file:
+        path: /var/lib/zookeeper/myid
+        state: touch
+        owner: cp-kafka
+        group: confluent
+        mode: '0755'
+
+    - name: "[configure] Insert identification number inside the file myid"
+      lineinfile:
+        path: /var/lib/zookeeper/myid
+        line: "{{ inventory_hostname | regex_search('([0-9]+)') }}"
+
+    - name: "[configure]Uploading zookeeper.properties jinja template for Zookeeper"
+      template:
+        src: ../templates/zoo_zookeeper_properties.j2
+        dest: /etc/kafka/zookeeper.properties
+        owner: cp-kafka
+        group: confluent
+        mode: '0755'
+
+    - name: "[configure] Change permissions on files"
+      file:
+        path: /etc/kafka/log4j.properties
+        mode: '0744'
+
+    - name: "[configure] Fix logging for kafka"
+      lineinfile:
+        path: /etc/kafka/log4j.properties
+        regexp: '^log4j.rootLogger=INFO, stdout, kafkaAppender'
+        line: log4j.rootLogger=INFO, kafkaAppender
+
+    - name: "[configure] Reload systemd daemon"
+      systemd:
+        daemon_reload: yes
+
+    - name: "[configure] Starting zookeeper service"
+      systemd:
+        name: confluent-zookeeper
+        enabled: yes
+        state: restarted
+
+  when: "'zookeeper' in group_names"
+
+# BROKER BLOCK
+- name: "[configure] Tasks specific for Brokers"
+  block:
+    - set_fact: brokerid="{{ inventory_hostname | regex_search('([0-9]+)') }}"
+
+    - name: "[configure] Enable cpkafka service"
+      systemd:
+        name: confluent-kafka
+        enabled: yes
+
+    - name: "[configure] Enable confluent-schema-registry service"
+      systemd:
+        name: confluent-schema-registry
+        enabled: yes
+
+    - name: "[configure] Create a directory if it does not exist"
+      file:
+        path: /etc/systemd/system/confluent-kafka.service.d/
+        state: directory
+        mode: '0755'
+
+    - name: "[configure] Copy broker override"
+      copy:
+        src: Files/overrides/broker_override_broker.conf
+        dest: /etc/systemd/system/confluent-kafka.service.d/override.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "[configure] Create a directory if it does not exist"
+      file:
+        path: /etc/systemd/system/confluent-schema-registry.service.d/
+        state: directory
+        mode: '0755'
+
+    - name: "[configure] Copy schema-registry override"
+      copy:
+        src: Files/overrides/broker_override_schema.conf
+        dest: /etc/systemd/system/confluent-schema-registry.service.d/override.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "[configure] Create a directory if it does not exist"
+      file:
+        path: /etc/schema-registry
+        state: directory
+        mode: '0755'
+
+    - name: "[configure] Uploading kafka_jaas jinja template for Schema registry"
+      template:
+        src: ../templates/broker_kafka_jaas.j2
+        dest: /etc/schema-registry/kafka_jaas.conf
+        owner: cp-kafka
+        group: confluent
+        mode: '0755'
+
+    - name: "[configure] Copy schema-registry override"
+      copy:
+        src: Files/overrides/broker_override_broker.conf
+        dest: /etc/systemd/system/confluent-kafka.service.d/override.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "[configure] Uploading server.properties jinja template for Broker"
+      template:
+        src: ../templates/broker_broker_properties.j2
+        dest: /etc/kafka/server.properties
+        owner: cp-kafka
+        group: confluent
+        mode: '0755'
+
+    - name: "[configure] Uploading kafka_server_jaas jinja template for Broker"
+      template:
+        src: ../templates/broker_kafka_server_jaas.j2
+        dest: /etc/kafka/kafka_server_jaas.conf
+        owner: cp-kafka
+        group: confluent
+        mode: '0755'
+
+    # Schema registry is running on brokers node
+    - name: "[configure] Uploading schema-registry.properties jinja template for Schema-registry"
+      template:
+        src: ../templates/broker_schema-registry_properties.j2
+        dest: /etc/schema-registry/schema-registry.properties
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "[configure] Change permissions on files"
+      file:
+        path: /etc/kafka/log4j.properties
+        mode: '0744'
+
+    - name: "[configure] Fix logging for kafka"
+      lineinfile:
+        path: /etc/kafka/log4j.properties
+        regexp: '^log4j.rootLogger=INFO, stdout, kafkaAppender'
+        line: log4j.rootLogger=INFO, kafkaAppender
+
+    # As workaround solution for server.log
+    - name: "[configure] Fix ownership of server log"
+      file:
+        path: /var/log/kafka/server.log
+        owner: cp-kafka
+        group: confluent
+        state: touch
+        mode: '0644'
+
+    - name: "[configure] Run commands for creation of admin user to authenticate agains zookeeper"
+      shell: kafka-configs --zookeeper $ZOO --alter --add-config 'SCRAM-SHA-256=[iterations=8192,password={{ prod_password | default("$PASS") }}]' --entity-type users --entity-name schema-registry >> /var/log/kafka/server.log
+
+    - name: "[configure] Run command to create schema-registry user with proper ACL's"
+      shell: kafka-acls --authorizer-properties zookeeper.connect=$ZOO --add --allow-principal User:schema-registry --operation All --topic '_schemas' --group '*' >> /var/log/kafka/server.log
+
+    - name: "[configure] Add user admin for inner broker communication"
+      shell: kafka-configs --zookeeper $ZOO --alter --add-config 'SCRAM-SHA-256=[password={{ prod_password | default("$PASS") }}]' --entity-type users --entity-name admin >> /var/log/kafka/server.log
+
+    - name: "[configure] Prepare certificate for Kafka"
+      shell: /opt/CertNanny/bin/auto-enroll-certs.sh -H $(hostname) -D cz.infra -P pki01.cn.nonprod 60 45 1 CN_INFRASTRUCTURE@embedit.cz -wls $(hostname -s) $PASS /etc/ssl/certs && mv /etc/ssl/certs/weblogic.jks /etc/ssl/certs/kafka.jks >> /var/log/kafka/server.log
+      ignore_errors: yes
+
+    - name: "[configure] Reload systemd daemon"
+      systemd:
+        daemon_reload: yes
+
+    - name: "[configure] Starting broker service"
+      systemd:
+        name: confluent-kafka
+        enabled: yes
+        state: restarted
+
+    - name: "[configure] Starting schema-registry service"
+      systemd:
+        name: confluent-schema-registry
+        enabled: yes
+        state: restarted
+
+  when: "'broker' in group_names"
+
+
+# SCHEMA REGISTRY BLOCK
+- name: "[configure] Tasks specific for Schema registry"
+  block:
+    - name: "[configure] Enable docker service"
+      systemd:
+        name: docker
+        enabled: yes
+
+    - name: "[configure] Create dir for docker.d service in /etc/systemd/"
+      file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+        mode: '0755'
+
+    - name: "[configure] Copy docker override"
+      copy:
+        src: Files/overrides/tools_override_docker_tools.conf
+        dest: /etc/systemd/system/docker.service.d/override.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "[configure] Uploading schema-registry.service j2 template for schema-registry"
+      template:
+        src: templates/tools_schema-registry_service.j2
+        dest: /etc/systemd/system/docker-schema-registry.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: "[configure] Reload systemd daemon"
+      systemd:
+        daemon_reload: yes
+
+    - name: "[configure] Starting docker service"
+      systemd:
+        name: docker
+        enabled: yes
+        state: restarted
+
+    # Ignore errors in case docker container is already running
+    - name: "Startup schema-registry UI"
+      shell: docker run -d -p 8000:8000 -e SCHEMAREGISTRY_URL=https://kafka.cntest1.cz.infra/schema-registry/ landoop/schema-registry-ui
+      ignore_errors: yes
+
+    # Check if docker is already running
+    - name: "[configure] Start docker as service"
+      systemd:
+        name: docker-schema-registry
+        enabled: yes
+        state: started
+
+  when: "'schema-registry' in group_names"
+

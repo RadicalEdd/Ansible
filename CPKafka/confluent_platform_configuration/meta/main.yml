@@ -1,0 +1,8 @@
+---
+galaxy_info:
+  author: Standa Mitrega
+  description: Basic OS + java setup
+  license: Proprietary
+  min_ansible_version: 0.1
+dependencies: []
+

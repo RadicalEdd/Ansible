@@ -1,0 +1,7 @@
+listeners=http://0.0.0.0:8081
+kafkastore.bootstrap.servers={% for host in groups['broker'] %}{{ host }}:9093{% if not loop.last %}{{','}}{% endif %}{% endfor %}
+
+kafkastore.topic=_schemas
+debug=false
+kafkastore.security.protocol=SASL_PLAINTEXT
+kafkastore.sasl.mechanism=SCRAM-SHA-256

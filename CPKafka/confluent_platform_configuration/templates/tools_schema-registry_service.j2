@@ -1,0 +1,15 @@
+# This file is ansible managed
+
+[Unit]
+Description=schema registry UI
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker start -a schema-registry
+# ExecStart=/usr/bin/docker run -d -p 8000:8000 -e SCHEMAREGISTRY_URL=https://kafka.{{ env_code }}/schema-registry/ --name=schema-registry landoop/schema-registry-ui
+ExecStop=/usr/bin/docker stop schema-registry
+
+[Install]
+WantedBy=multi-user.target
