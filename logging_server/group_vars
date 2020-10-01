@@ -1,0 +1,5 @@
+# All directories which will be exported if exists
+directories:
+    - { path: '/var/log/fmw', path_var: 'var_log_fmw', label: 'log', user: 'weblogic' }
+    - { path: '/var/fmw/dump', path_var: 'var_fmw_dump', label: 'dump',  user: 'weblogic' } 
+    - { path: '/var/fmw/jfr', path_var: 'var_fmw_jfr', label: 'jfr', user: 'weblogic' }
